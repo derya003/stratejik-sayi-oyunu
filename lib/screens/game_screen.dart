@@ -121,7 +121,7 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ),
             const SizedBox(height: 10),
-            _buildBottomBar(game),
+            _buildBottomInfo(game),
             const SizedBox(height: 12),
           ],
         ),
@@ -227,7 +227,7 @@ class _GameScreenState extends State<GameScreen> {
     final isSuccess = game.message!.contains('Doğru');
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 250),
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -267,73 +267,49 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _buildBottomBar(GameService game) {
+  Widget _buildBottomInfo(GameService game) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.04),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white12),
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: game.selectedPositions.isEmpty
-                  ? null
-                  : game.cancelSelection,
-              icon: const Icon(Icons.close_rounded, size: 18),
-              label: const Text('İptal'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFE57373),
-                side: BorderSide(
-                  color: game.selectedPositions.isEmpty
-                      ? Colors.white10
-                      : const Color(0xFFE57373).withOpacity(0.45),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 13),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+          const Row(
+            children: [
+              Icon(
+                Icons.pan_tool_alt_rounded,
+                color: Colors.white54,
+                size: 18,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Sürükleyerek seç',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-            ),
+            ],
           ),
-          const SizedBox(width: 10),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.04),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.white12),
             ),
             child: Text(
-              '${game.selectedPositions.length}/4',
+              '${game.selectedPositions.length}/4 blok',
               style: const TextStyle(
                 color: Colors.white70,
-                fontSize: 13,
+                fontSize: 12.5,
                 fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: game.selectedPositions.length >= 2
-                  ? game.confirmSelection
-                  : null,
-              icon: const Icon(Icons.check_rounded, size: 18),
-              label: const Text('Onayla'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF43A047),
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: Colors.white12,
-                disabledForegroundColor: Colors.white30,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 13),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
               ),
             ),
           ),

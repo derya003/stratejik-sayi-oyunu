@@ -13,9 +13,13 @@ const int MAX_WRONG = 3;
 class FallingBlock {
   Block block;
   int col;
-  double row; // ekranın üstünden başlar (-1.0), aşağı iner
+  double row;
 
-  FallingBlock({required this.block, required this.col, required this.row});
+  FallingBlock({
+    required this.block,
+    required this.col,
+    required this.row,
+  });
 }
 
 class GameService extends ChangeNotifier {
@@ -33,6 +37,8 @@ class GameService extends ChangeNotifier {
   final Random _random = Random();
   Timer? _fallTimer;
 
+  bool _isDragging = false;
+
   GameService() {
     _initGame();
   }
@@ -44,8 +50,9 @@ class GameService extends ChangeNotifier {
     wrongCount = 0;
     isGameOver = false;
     message = null;
+    _isDragging = false;
 
-    // İlk 3 satırı doldur (en alt 3 satır: 7, 8, 9)
+    // İlk 3 satırı alttan doldur
     for (int r = ROWS - 3; r < ROWS; r++) {
       for (int c = 0; c < COLS; c++) {
         board[r][c] = _randomBlock();
@@ -59,7 +66,6 @@ class GameService extends ChangeNotifier {
 
   void _startFallLoop() {
     _fallTimer?.cancel();
-    // Her 80ms'de blokları aşağı indir
     _fallTimer = Timer.periodic(const Duration(milliseconds: 80), (_) {
       _tickFalling();
     });
@@ -68,22 +74,23 @@ class GameService extends ChangeNotifier {
   void _tickFalling() {
     if (isGameOver || fallingBlocks.isEmpty) return;
 
-    List<FallingBlock> toRemove = [];
+    final List<FallingBlock> toRemove = [];
 
     for (final fb in fallingBlocks) {
-      fb.row += 0.25; // her 80ms'de 0.25 satır iner → yaklaşık 3.2sn'de 10 satır
+      fb.row += 0.25;
 
-      int currentRowInt = fb.row.floor();
+      final int currentRowInt = fb.row.floor();
+      final int landingRow = _findLandingRow(fb.col);
 
-      // Duracağı yeri hesapla: bu sütunda en üstteki dolu hücre
-      int landingRow = _findLandingRow(fb.col);
+      if (landingRow == -1) {
+        isGameOver = true;
+        message = 'Oyun Bitti! Tahta doldu.';
+        notifyListeners();
+        return;
+      }
 
-      // Blok yerleşme noktasına geldi mi?
       if (currentRowInt >= landingRow) {
-        // Tam landingRow'a oturt
-        if (landingRow >= 0 && landingRow < ROWS) {
-          board[landingRow][fb.col] = fb.block;
-        }
+        board[landingRow][fb.col] = fb.block;
         toRemove.add(fb);
         _checkGameOver();
       }
@@ -96,26 +103,23 @@ class GameService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Bu sütunda bloğun oturacağı satırı bul
-  // (en alttaki boş satır = tabanın üstü ya da başka bloğun üstü)
   int _findLandingRow(int col) {
-    // En alttan yukarı tara, ilk boş satırı bul
     for (int r = ROWS - 1; r >= 0; r--) {
       if (board[r][col] == null) {
-        return r; // bu satır boş, buraya oturur
+        return r;
       }
     }
-    return -1; // sütun tamamen dolu
+    return -1;
   }
 
-  // Her 5 saniyede bir GameScreen bu fonksiyonu çağırır
   void spawnNewBlock() {
     if (isGameOver) return;
 
-    // Tamamen dolu olmayan sütunlardan rastgele seç
-    List<int> availableCols = [];
+    final List<int> availableCols = [];
     for (int c = 0; c < COLS; c++) {
-      if (board[0][c] == null) availableCols.add(c);
+      if (board[0][c] == null) {
+        availableCols.add(c);
+      }
     }
 
     if (availableCols.isEmpty) {
@@ -125,59 +129,88 @@ class GameService extends ChangeNotifier {
       return;
     }
 
-    int col = availableCols[_random.nextInt(availableCols.length)];
+    final int col = availableCols[_random.nextInt(availableCols.length)];
 
-    fallingBlocks.add(FallingBlock(
-      block: _randomBlock(),
-      col: col,
-      row: -1.0, // ekranın üstünden başla
-    ));
+    fallingBlocks.add(
+      FallingBlock(
+        block: _randomBlock(),
+        col: col,
+        row: -1.0,
+      ),
+    );
+
     notifyListeners();
   }
 
   Block _randomBlock() {
-    int value = _random.nextInt(9) + 1;
+    final int value = _random.nextInt(9) + 1;
     return Block(value: value, color: blockColors[value]!);
   }
 
   void _generateTarget() {
     targetNumber = _random.nextInt(30) + 3;
+  }
+
+  bool _isNeighbor(Position a, Position b) {
+    final rowDiff = (a.row - b.row).abs();
+    final colDiff = (a.col - b.col).abs();
+
+    // yatay, dikey, çapraz komşuluk
+    return rowDiff <= 1 && colDiff <= 1 && !(rowDiff == 0 && colDiff == 0);
+  }
+
+  void _clearSelectionFlags() {
+    for (final pos in selectedPositions) {
+      board[pos.row][pos.col]?.isSelected = false;
+    }
+  }
+
+  void beginSelection(int row, int col) {
+    if (isGameOver) return;
+    if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return;
+    if (board[row][col] == null) return;
+
+    cancelSelection(clearMessage: false);
+
+    _isDragging = true;
+    final pos = Position(row, col);
+    selectedPositions.add(pos);
+    board[row][col]!.isSelected = true;
+    message = null;
     notifyListeners();
   }
 
-  void toggleBlock(int row, int col) {
-    if (isGameOver) return;
-    final pos = Position(row, col);
+  void extendSelection(int row, int col) {
+    if (!_isDragging || isGameOver) return;
+    if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return;
     if (board[row][col] == null) return;
 
-    if (selectedPositions.contains(pos)) {
-      selectedPositions.remove(pos);
-      board[row][col]!.isSelected = false;
+    final pos = Position(row, col);
+
+    if (selectedPositions.isEmpty) return;
+
+    // Aynı hücreye tekrar gelindiyse bir şey yapma
+    if (selectedPositions.last == pos) return;
+
+    // Geriye doğru gidildiyse son seçimi kaldır
+    if (selectedPositions.length >= 2 &&
+        selectedPositions[selectedPositions.length - 2] == pos) {
+      final last = selectedPositions.removeLast();
+      board[last.row][last.col]?.isSelected = false;
       message = null;
       notifyListeners();
       return;
     }
 
-    if (selectedPositions.length >= MAX_SELECTED) {
-      message = 'En fazla 4 blok seçebilirsin!';
-      notifyListeners();
-      return;
-    }
+    // Daha önce seçilmişse alma
+    if (selectedPositions.contains(pos)) return;
 
-    if (selectedPositions.isEmpty) {
-      selectedPositions.add(pos);
-      board[row][col]!.isSelected = true;
-      message = null;
-      notifyListeners();
-      return;
-    }
+    // En fazla 4 blok
+    if (selectedPositions.length >= MAX_SELECTED) return;
 
-    bool isNeighbor = selectedPositions.any((s) => s.neighbors.contains(pos));
-    if (!isNeighbor) {
-      message = 'Sadece komşu blokları seçebilirsin!';
-      notifyListeners();
-      return;
-    }
+    // Sadece son seçilen bloğa komşu olmalı
+    final last = selectedPositions.last;
+    if (!_isNeighbor(last, pos)) return;
 
     selectedPositions.add(pos);
     board[row][col]!.isSelected = true;
@@ -185,15 +218,19 @@ class GameService extends ChangeNotifier {
     notifyListeners();
   }
 
-  void confirmSelection() {
+  void endSelection() {
+    if (!_isDragging) return;
+    _isDragging = false;
+
     if (selectedPositions.length < MIN_SELECTED) {
-      message = 'En az 2 blok seçmelisin!';
-      notifyListeners();
+      cancelSelection(clearMessage: true);
       return;
     }
 
-    int total = selectedPositions.fold(
-        0, (sum, pos) => sum + (board[pos.row][pos.col]?.value ?? 0));
+    final int total = selectedPositions.fold(
+      0,
+      (sum, pos) => sum + (board[pos.row][pos.col]?.value ?? 0),
+    );
 
     if (total == targetNumber) {
       _handleCorrect();
@@ -203,12 +240,15 @@ class GameService extends ChangeNotifier {
   }
 
   void _handleCorrect() {
-    message = '🎉 Doğru! Bloklar patladı!';
+    message = 'Doğru seçim!';
+
     for (final pos in selectedPositions) {
       board[pos.row][pos.col] = null;
     }
+
     selectedPositions = [];
     wrongCount = 0;
+
     _applyGravity();
     _generateTarget();
     notifyListeners();
@@ -216,41 +256,48 @@ class GameService extends ChangeNotifier {
 
   void _handleWrong() {
     wrongCount++;
-    for (final pos in selectedPositions) {
-      board[pos.row][pos.col]?.isSelected = false;
-    }
+    _clearSelectionFlags();
     selectedPositions = [];
 
     if (wrongCount >= MAX_WRONG) {
-      message = '❌ 3 yanlış! Tüm sütunlara yeni blok iniyor!';
+      message = '3 yanlış! Yeni bloklar iniyor!';
       wrongCount = 0;
       _addRowToTop();
     } else {
-      message = '❌ Yanlış! ($wrongCount/$MAX_WRONG hata)';
+      message = 'Yanlış seçim! ($wrongCount/$MAX_WRONG)';
     }
+
     notifyListeners();
   }
 
-  void cancelSelection() {
-    for (final pos in selectedPositions) {
-      board[pos.row][pos.col]?.isSelected = false;
-    }
+  void cancelSelection({bool clearMessage = true}) {
+    _clearSelectionFlags();
     selectedPositions = [];
-    message = null;
+    _isDragging = false;
+
+    if (clearMessage) {
+      message = null;
+    }
+
     notifyListeners();
   }
 
   void _applyGravity() {
     for (int c = 0; c < COLS; c++) {
-      List<Block> colBlocks = [];
+      final List<Block> colBlocks = [];
+
       for (int r = 0; r < ROWS; r++) {
-        if (board[r][c] != null) colBlocks.add(board[r][c]!);
+        if (board[r][c] != null) {
+          colBlocks.add(board[r][c]!);
+        }
       }
+
       for (int r = 0; r < ROWS; r++) {
-        int offset = ROWS - colBlocks.length;
+        final offset = ROWS - colBlocks.length;
         board[r][c] = r < offset ? null : colBlocks[r - offset];
       }
     }
+
     _checkGameOver();
   }
 
@@ -263,9 +310,11 @@ class GameService extends ChangeNotifier {
         return;
       }
     }
+
     for (int c = 0; c < COLS; c++) {
       board[0][c] = _randomBlock();
     }
+
     _applyGravity();
     _checkGameOver();
   }
@@ -293,5 +342,7 @@ class GameService extends ChangeNotifier {
   }
 
   int get selectedSum => selectedPositions.fold(
-      0, (sum, pos) => sum + (board[pos.row][pos.col]?.value ?? 0));
+        0,
+        (sum, pos) => sum + (board[pos.row][pos.col]?.value ?? 0),
+      );
 }
