@@ -22,13 +22,14 @@ class Block {
 
 // Her sayı için sabit renk tanımları
 const Map<int, Color> blockColors = {
-  1: Color(0xFFFF6B6B), // kırmızı
-  2: Color(0xFFFF9F43), // turuncu
-  3: Color(0xFFFFD93D), // sarı
-  4: Color(0xFF6BCB77), // yeşil
-  5: Color(0xFF4D96FF), // mavi
-  6: Color(0xFF845EC2), // mor
-  7: Color.fromARGB(255, 253, 84, 141), // pembe
-  8: Color(0xFF00C9A7), // turkuaz
-  9: Color(0xFFFF5252), // koyu kırmızı
+  1: Color(0xFFFF6B6B), // canlı mercan kırmızı
+  2: Color(0xFFFFA94D), // sıcak turuncu
+  3: Color(0xFFFFD43B), // canlı sarı
+  4: Color(0xFF69DB7C), // taze yeşil
+  5: Color(0xFF4D96FF), // temiz mavi
+  6: Color(0xFF9775FA), // mor-lila
+  7: Color(0xFFF06595), // canlı pembe
+  8: Color(0xFF22D3EE), // açık turkuaz
+  9: Color(0xFFFF922B), // koyu altın-turuncu
+
 };
