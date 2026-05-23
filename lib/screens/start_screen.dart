@@ -5,8 +5,8 @@ class StartScreen extends StatelessWidget {
   const StartScreen({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+  Widget build(BuildContext context) { // ekranın yapısını tanımladığımız build metodu
+    return Scaffold( //iskeleti 
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -21,12 +21,12 @@ class StartScreen extends StatelessWidget {
             stops: [0.0, 0.35, 0.75, 1.0],
           ),
         ),
-        child: SafeArea(
-          child: Padding(
+        child: SafeArea( // çakışmayı önler 
+          child: Padding( // sağdan soldan boşluk
             padding: const EdgeInsets.symmetric(horizontal: 28),
-            child: Column(
+            child: Column( // tum uı elementlerini dikey olarak sıralar
               children: [
-                const Spacer(),
+                const Spacer(), //boşluk
 
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -40,7 +40,7 @@ class StartScreen extends StatelessWidget {
 
                 const SizedBox(height: 30),
 
-                Container(
+                Container( //logo kutusu
                   width: 96,
                   height: 96,
                   decoration: BoxDecoration(
@@ -61,14 +61,14 @@ class StartScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: const Icon(
+                  child: const Icon( 
                     Icons.grid_on_rounded,
                     size: 48,
                     color: Colors.white,
                   ),
                 ),
 
-                const SizedBox(height: 28),
+                const SizedBox(height: 28), 
 
                 const Text(
                   'Stratejik',
@@ -108,10 +108,10 @@ class StartScreen extends StatelessWidget {
 
                 const Spacer(),
 
-                Container(
+                Container(   // buton kutusu
                   width: double.infinity,
                   height: 56,
-                  decoration: BoxDecoration(
+                  decoration: BoxDecoration( 
                     borderRadius: BorderRadius.circular(18),
                     gradient: const LinearGradient(
                       colors: [
@@ -126,16 +126,16 @@ class StartScreen extends StatelessWidget {
                         offset: const Offset(0, 8),
                       ),
                     ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
+                  ), 
+                  child: Material( 
+                    color: Colors.transparent, 
+                    child: InkWell( // tıklanabilir yapar
                       borderRadius: BorderRadius.circular(18),
                       onTap: () {
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const GameScreen(),
+                            builder: (_) => const GameScreen(), // oyun ekranına geçiş yapar
                           ),
                         );
                       },
@@ -163,7 +163,7 @@ class StartScreen extends StatelessWidget {
     );
   }
 
-  Widget _dot(Color color) {
+  Widget _dot(Color color) { // küçük yuvarlak oluşturur
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 4),
       width: 10,

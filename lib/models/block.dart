@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 
 class Block {
-  final int value;
-  final Color color;
-  bool isSelected;
+  final int value; // bloğun değeri
+  final Color color; // bloğun rengi
+  bool isSelected; // bloğun seçili olup olmadığını gösteren durum
 
   Block({
-    required this.value,
+    required this.value, 
     required this.color,
     this.isSelected = false,
   });
 
-  Block copyWith({int? value, Color? color, bool? isSelected}) {
+  Block copyWith({int? value, Color? color, bool? isSelected}) { // bloğun değerini, rengini veya seçili durumunu değiştirmek için kullanılan bir yöntem
     return Block(
       value: value ?? this.value,
       color: color ?? this.color,

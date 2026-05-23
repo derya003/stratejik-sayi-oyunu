@@ -2,14 +2,14 @@ class Position {
   final int row;
   final int col;
 
-  const Position(this.row, this.col);
+  const Position(this.row, this.col); // yeni oluşrtur
 
   @override
-  bool operator ==(Object other) =>
-      other is Position && other.row == row && other.col == col;
+  bool operator ==(Object other) => // iki position aynı mı kontrol ediyor
+      other is Position && other.row == row && other.col == col; 
 
   @override
-  int get hashCode => row.hashCode ^ col.hashCode;
+  int get hashCode => row.hashCode ^ col.hashCode; // position'ların hash kodunu oluşturur, böylece aynı pozisyonlar aynı hash koduna sahip olur
 
   @override
   String toString() => 'Position($row, $col)';

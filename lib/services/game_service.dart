@@ -10,10 +10,23 @@ const int MAX_SELECTED = 4;
 const int MIN_SELECTED = 2;
 const int MAX_WRONG = 3;
 
+// Her sayı için puan değerleri (ödev tablosuna göre)
+const Map<int, int> blockPoints = {
+  1: 1,
+  2: 2,
+  3: 3,
+  4: 5,
+  5: 7,
+  6: 9,
+  7: 12,
+  8: 15,
+  9: 20,
+};
+
 class FallingBlock {
   Block block;
   int col;
-  double row; // ekranın üstünden başlar (-1.0), aşağı iner
+  double row;
 
   FallingBlock({required this.block, required this.col, required this.row});
 }
@@ -30,8 +43,16 @@ class GameService extends ChangeNotifier {
   bool isGameOver = false;
   String? message;
 
+  // --- YENİ: Puan alanları ---
+  int score = 0;
+  int _spawnIntervalSeconds = 5; // mevcut spawn süresi
+
   final Random _random = Random();
   Timer? _fallTimer;
+
+  // GameScreen'deki spawn timer'ı güncellemek için callback
+  // (GameScreen bu callback'i set eder)
+  VoidCallback? onSpawnIntervalChanged;
 
   GameService() {
     _initGame();
@@ -44,8 +65,9 @@ class GameService extends ChangeNotifier {
     wrongCount = 0;
     isGameOver = false;
     message = null;
+    score = 0;
+    _spawnIntervalSeconds = 5;
 
-    // İlk 3 satırı doldur (en alt 3 satır: 7, 8, 9)
     for (int r = ROWS - 3; r < ROWS; r++) {
       for (int c = 0; c < COLS; c++) {
         board[r][c] = _randomBlock();
@@ -57,9 +79,17 @@ class GameService extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Puana göre spawn süresini hesapla
+  int _calcSpawnInterval() {
+    if (score >= 400) return 1;
+    if (score >= 300) return 2;
+    if (score >= 200) return 3;
+    if (score >= 100) return 4;
+    return 5;
+  }
+
   void _startFallLoop() {
     _fallTimer?.cancel();
-    // Her 80ms'de blokları aşağı indir
     _fallTimer = Timer.periodic(const Duration(milliseconds: 80), (_) {
       _tickFalling();
     });
@@ -71,16 +101,11 @@ class GameService extends ChangeNotifier {
     List<FallingBlock> toRemove = [];
 
     for (final fb in fallingBlocks) {
-      fb.row += 0.25; // her 80ms'de 0.25 satır iner → yaklaşık 3.2sn'de 10 satır
-
+      fb.row += 0.25;
       int currentRowInt = fb.row.floor();
-
-      // Duracağı yeri hesapla: bu sütunda en üstteki dolu hücre
       int landingRow = _findLandingRow(fb.col);
 
-      // Blok yerleşme noktasına geldi mi?
       if (currentRowInt >= landingRow) {
-        // Tam landingRow'a oturt
         if (landingRow >= 0 && landingRow < ROWS) {
           board[landingRow][fb.col] = fb.block;
         }
@@ -96,23 +121,16 @@ class GameService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Bu sütunda bloğun oturacağı satırı bul
-  // (en alttaki boş satır = tabanın üstü ya da başka bloğun üstü)
   int _findLandingRow(int col) {
-    // En alttan yukarı tara, ilk boş satırı bul
     for (int r = ROWS - 1; r >= 0; r--) {
-      if (board[r][col] == null) {
-        return r; // bu satır boş, buraya oturur
-      }
+      if (board[r][col] == null) return r;
     }
-    return -1; // sütun tamamen dolu
+    return -1;
   }
 
-  // Her 5 saniyede bir GameScreen bu fonksiyonu çağırır
   void spawnNewBlock() {
     if (isGameOver) return;
 
-    // Tamamen dolu olmayan sütunlardan rastgele seç
     List<int> availableCols = [];
     for (int c = 0; c < COLS; c++) {
       if (board[0][c] == null) availableCols.add(c);
@@ -126,11 +144,10 @@ class GameService extends ChangeNotifier {
     }
 
     int col = availableCols[_random.nextInt(availableCols.length)];
-
     fallingBlocks.add(FallingBlock(
       block: _randomBlock(),
       col: col,
-      row: -1.0, // ekranın üstünden başla
+      row: -1.0,
     ));
     notifyListeners();
   }
@@ -141,7 +158,21 @@ class GameService extends ChangeNotifier {
   }
 
   void _generateTarget() {
-    targetNumber = _random.nextInt(30) + 3;
+    List<Block> allBlocks = [];
+    for (var row in board) {
+      for (var b in row) {
+        if (b != null) allBlocks.add(b);
+      }
+    }
+    if (allBlocks.length < 2) return;
+
+    allBlocks.shuffle();
+    int count = _random.nextInt(3) + 2;
+    int sum = 0;
+    for (int i = 0; i < count; i++) {
+      sum += allBlocks[i].value;
+    }
+    targetNumber = sum;
     notifyListeners();
   }
 
@@ -203,14 +234,32 @@ class GameService extends ChangeNotifier {
   }
 
   void _handleCorrect() {
-    message = '🎉 Doğru! Bloklar patladı!';
+    // Puan hesapla
+    int gained = selectedPositions.fold(
+        0,
+        (sum, pos) =>
+            sum + (blockPoints[board[pos.row][pos.col]?.value ?? 0] ?? 0));
+    score += gained;
+
+    message = '🎉 Doğru! +$gained puan kazandın!';
+
     for (final pos in selectedPositions) {
       board[pos.row][pos.col] = null;
     }
     selectedPositions = [];
-    wrongCount = 0;
+
+    // BUG FIX: wrongCount sıfırlanmıyor artık
+
     _applyGravity();
     _generateTarget();
+
+    // Süre azalma: puan değişince spawn interval güncelle
+    final newInterval = _calcSpawnInterval();
+    if (newInterval != _spawnIntervalSeconds) {
+      _spawnIntervalSeconds = newInterval;
+      onSpawnIntervalChanged?.call(); // GameScreen'e haber ver
+    }
+
     notifyListeners();
   }
 
@@ -285,6 +334,8 @@ class GameService extends ChangeNotifier {
     _fallTimer?.cancel();
     _initGame();
   }
+
+  int get spawnIntervalSeconds => _spawnIntervalSeconds;
 
   @override
   void dispose() {

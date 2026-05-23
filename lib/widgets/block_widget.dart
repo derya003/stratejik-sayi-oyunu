@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import '../models/block.dart';
 
 class BlockWidget extends StatelessWidget {
-  final Block? block;
+  final Block? block; 
   final bool isSelected;
-  final VoidCallback? onTap;
+  final VoidCallback? onTap; //
 
-  const BlockWidget({
+  const BlockWidget({ 
     Key? key,
     required this.block,
     this.isSelected = false,
@@ -14,13 +14,13 @@ class BlockWidget extends StatelessWidget {
   }) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) { // blok null ise boş bir kutu, değilse değeri gösteren bir kutu oluşturur
     final widgetContent = Padding(
       padding: const EdgeInsets.all(1),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
-          color: block == null
+          color: block == null // blok null ise arka plan rengi
               ? Colors.white.withOpacity(0.05)
               : (isSelected ? block!.color : block!.color.withOpacity(0.85)),
           borderRadius: BorderRadius.circular(6),
@@ -43,13 +43,13 @@ class BlockWidget extends StatelessWidget {
                   ),
                 ],
         ),
-        child: block == null
+        child: block == null// blok null ise değeri göstermeyen bir widget oluşturur
             ? null
-            : Center(
+            : Center( 
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
-                    '${block!.value}',
+                    '${block!.value}',// blok null değilse değeri gösteren bir widget oluşturur
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -61,9 +61,9 @@ class BlockWidget extends StatelessWidget {
       ),
     );
 
-    if (block == null) return widgetContent;
+    if (block == null) return widgetContent;// blok null ise tıklanamaz, değilse tıklanabilir bir widget oluşturur
 
-    return GestureDetector(
+    return GestureDetector(// blok null değilse tıklanabilir bir widget oluşturur
       onTap: onTap,
       child: widgetContent,
     );
