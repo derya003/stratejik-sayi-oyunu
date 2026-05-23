@@ -3,16 +3,16 @@ import 'package:provider/provider.dart';
 import 'services/game_service.dart';
 import 'screens/start_screen.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() { 
+  runApp(const MyApp()); // Uygulamanın başlangıç noktası, MyApp widget'ını çalıştırır.
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+class MyApp extends StatelessWidget { //değişmeyen yapı
+  const MyApp({Key? key}) : super(key: key); 
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
+    return ChangeNotifierProvider( // Provider paketi kullanarak GameService'i uygulama genelinde erişilebilir hale getirir.
       create: (_) => GameService(),
       child: MaterialApp(
         title: 'Stratejik Sayı Oyunu',
@@ -20,7 +20,7 @@ class MyApp extends StatelessWidget {
         theme: ThemeData.dark().copyWith(
           scaffoldBackgroundColor: const Color(0xFF0A0A15),
         ),
-        home: const StartScreen(),
+        home: const StartScreen(), //ilk açılan ekran
       ),
     );
   }

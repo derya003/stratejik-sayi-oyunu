@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/game_service.dart';
 import '../widgets/game_board.dart';
+import 'leaderboard_screen.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({Key? key}) : super(key: key);
@@ -17,12 +18,17 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-    _startSpawnTimer();
+    // GameService'e spawn interval değişince timer'ı yeniden başlat callback'i ver
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final game = context.read<GameService>();
+      game.onSpawnIntervalChanged = _restartSpawnTimer;
+      _startSpawnTimer(game.spawnIntervalSeconds);
+    });
   }
 
-  void _startSpawnTimer() {
+  void _startSpawnTimer(int seconds) {
     _spawnTimer?.cancel();
-    _spawnTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+    _spawnTimer = Timer.periodic(Duration(seconds: seconds), (_) {
       final game = context.read<GameService>();
       if (!game.isGameOver) {
         game.spawnNewBlock();
@@ -30,13 +36,20 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
+  void _restartSpawnTimer() {
+    final game = context.read<GameService>();
+    _startSpawnTimer(game.spawnIntervalSeconds);
+  }
+
   @override
   void dispose() {
     _spawnTimer?.cancel();
+    final game = context.read<GameService>();
+    game.onSpawnIntervalChanged = null;
     super.dispose();
   }
 
-  void _showGameOverDialog() {
+  void _showGameOverDialog(int finalScore) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -54,19 +67,58 @@ class _GameScreenState extends State<GameScreen> {
           ),
           textAlign: TextAlign.center,
         ),
-        content: const Text(
-          'Tahta doldu. Yeniden başlamak ister misin?',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: 14,
-          ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Tahta doldu.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Skorun: $finalScore',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFFFBC02D),
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
         ),
         actions: [
-          Center(
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Liderlik tablosuna git
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF4D96FF),
+                  side: const BorderSide(color: Color(0xFF4D96FF)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => LeaderboardScreen(lastScore: finalScore),
+                    ),
+                  ).then((_) {
+                    // Liderboard'dan döndükten sonra oyunu yeniden başlat
+                    context.read<GameService>().restartGame();
+                    _startSpawnTimer(context.read<GameService>().spawnIntervalSeconds);
+                  });
+                },
+                child: const Text('🏆 Liderlik Tablosu'),
+              ),
+              const SizedBox(height: 8),
+              // Tekrar oyna
+              ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF43A047),
                   foregroundColor: Colors.white,
@@ -79,14 +131,15 @@ class _GameScreenState extends State<GameScreen> {
                 onPressed: () {
                   Navigator.pop(context);
                   context.read<GameService>().restartGame();
-                  _startSpawnTimer();
+                  _startSpawnTimer(
+                      context.read<GameService>().spawnIntervalSeconds);
                 },
                 child: const Text(
                   'Tekrar Oyna',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
-            ),
+            ],
           ),
         ],
       ),
@@ -100,7 +153,7 @@ class _GameScreenState extends State<GameScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (game.isGameOver) {
         _spawnTimer?.cancel();
-        _showGameOverDialog();
+        _showGameOverDialog(game.score);
       }
     });
 
@@ -111,7 +164,9 @@ class _GameScreenState extends State<GameScreen> {
           children: [
             const SizedBox(height: 10),
             _buildTopBar(game),
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
+            _buildScoreBar(game), // YENİ: Puan + hız göstergesi
+            const SizedBox(height: 6),
             if (game.message != null) _buildMessageBox(game),
             const SizedBox(height: 8),
             const Expanded(
@@ -121,7 +176,7 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ),
             const SizedBox(height: 10),
-            _buildBottomInfo(game),
+            _buildBottomBar(game),
             const SizedBox(height: 12),
           ],
         ),
@@ -192,6 +247,64 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  // YENİ: Puan ve blok düşme hızı göstergesi
+  Widget _buildScoreBar(GameService game) {
+    final interval = game.spawnIntervalSeconds;
+    final speedLabel = interval == 1
+        ? '🔥 MAX HIZ'
+        : interval == 2
+            ? '⚡ Çok Hızlı'
+            : interval == 3
+                ? '🚀 Hızlı'
+                : interval == 4
+                    ? '➡️ Orta'
+                    : '🐢 Yavaş';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'PUAN  ',
+                style: TextStyle(
+                  color: Colors.white38,
+                  fontSize: 11,
+                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                '${game.score}',
+                style: const TextStyle(
+                  color: Color(0xFFFBC02D),
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          Text(
+            '$speedLabel  (${interval}sn)',
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildInfoItem({
     required String title,
     required String value,
@@ -227,7 +340,7 @@ class _GameScreenState extends State<GameScreen> {
     final isSuccess = game.message!.contains('Doğru');
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
+      duration: const Duration(milliseconds: 300),
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -267,49 +380,73 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _buildBottomInfo(GameService game) {
+  Widget _buildBottomBar(GameService game) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.04),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white12),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Row(
-            children: [
-              Icon(
-                Icons.pan_tool_alt_rounded,
-                color: Colors.white54,
-                size: 18,
-              ),
-              SizedBox(width: 8),
-              Text(
-                'Sürükleyerek seç',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: game.selectedPositions.isEmpty
+                  ? null
+                  : game.cancelSelection,
+              icon: const Icon(Icons.close_rounded, size: 18),
+              label: const Text('İptal'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFE57373),
+                side: BorderSide(
+                  color: game.selectedPositions.isEmpty
+                      ? Colors.white10
+                      : const Color(0xFFE57373).withOpacity(0.45),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
-            ],
+            ),
           ),
+          const SizedBox(width: 10),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.04),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: Colors.white12),
             ),
             child: Text(
-              '${game.selectedPositions.length}/4 blok',
+              '${game.selectedPositions.length}/4',
               style: const TextStyle(
                 color: Colors.white70,
-                fontSize: 12.5,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: game.selectedPositions.length >= 2
+                  ? game.confirmSelection
+                  : null,
+              icon: const Icon(Icons.check_rounded, size: 18),
+              label: const Text('Onayla'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF43A047),
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.white12,
+                disabledForegroundColor: Colors.white30,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
             ),
           ),
